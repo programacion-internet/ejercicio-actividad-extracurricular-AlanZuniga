@@ -17,7 +17,9 @@ class EventoFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'nombre' => $this->faker->name(),
+            'descripcion' => $this->faker->paragraph(1),
+            'fecha' => $fechaEvento,
         ];
     }
 }
