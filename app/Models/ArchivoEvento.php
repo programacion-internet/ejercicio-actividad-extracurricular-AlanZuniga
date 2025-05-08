@@ -7,6 +7,23 @@ use Illuminate\Database\Eloquent\Model;
 
 class ArchivoEvento extends Model
 {
-    /** @use HasFactory<\Database\Factories\ArchivoEventoFactory> */
-    use HasFactory;
+    protected $table = 'archivo_eventos';
+
+    protected $fillable = [
+        'nombre_original', 
+        'tamaño',
+        'mime',
+        'evento_id',
+        'user_id'
+    ];
+
+    public function evento()
+    {
+        return $this->belongsTo(Evento::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }
