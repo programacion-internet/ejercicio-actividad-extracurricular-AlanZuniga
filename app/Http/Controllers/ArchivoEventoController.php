@@ -3,6 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\ArchivoEvento;
+use App\Models\Evento;
+use Illuminate\Http\Request;
+
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+
+use Illuminate\Support\Facades\Gate;
+
 use App\Http\Requests\StoreArchivoEventoRequest;
 use App\Http\Requests\UpdateArchivoEventoRequest;
 
@@ -11,56 +19,60 @@ class ArchivoEventoController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Evento $evento)
     {
-        //
+        if (!$evento->users->contains(auth()->id())) {
+            abort(403, 'No te has inscrito a este evento');
+        }
+
+        $query = $evento->archivo();
+        
+        if (!auth()->user()->is_admin) {
+            $query->where('user_id', auth()->id());
+        }
+
+        $archivos = $query->get();
+
+        return view('eventos.show', compact('evento', 'archivo'));
+    }
+    public function upload(Request $request, Evento $evento)
+    {
+        Gate::authorize('upload', $evento);
+        
+        $request->validate([
+            'archivo' => 'required|file|max:10240'
+        ]);
+
+        if ($request->file('archivo')->isValid()) {
+            $file = $request->file('archivo');
+            
+            $nombreHash = $file->store('archivos_eventos/' . $evento->id);
+            
+            ArchivoEvento::create([
+                'nombre_original' => $file->getClientOriginalName(),
+                'tamaño' => $file->getSize(),
+                'mime' => $file->getMimeType(),
+                'evento_id' => $evento->id,
+                'user_id' => Auth::id()
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'El archivo se subio con éxito');
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function download(Evento $evento, ArchivoEvento $archivo)
     {
-        //
+        Gate::authorize('view', $archivo);
+        return Storage::download($archivo->nombre_hash, $archivo->nombre_original);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreArchivoEventoRequest $request)
+    public function delete(Evento $evento, ArchivoEvento $archivo)
     {
-        //
-    }
+        Gate::authorize('delete', $archivo);
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(ArchivoEvento $archivoEvento)
-    {
-        //
-    }
+        Storage::delete($archivo->nombre_hash);
+        $archivo->delete();
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(ArchivoEvento $archivoEvento)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(UpdateArchivoEventoRequest $request, ArchivoEvento $archivoEvento)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(ArchivoEvento $archivoEvento)
-    {
-        //
+        return redirect()->back()->with('success', 'Archivo eliminado');
     }
 }
